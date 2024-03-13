@@ -1,5 +1,6 @@
 from abc import ABC , abstractmethod
 import time
+import logging
 class Output(ABC):
     """Interface for the implementation of all classes responsible for
     further processing/output of the information gathered by the
@@ -7,6 +8,7 @@ class Output(ABC):
 
     def __init__(self, subject):
         subject.register(self)
+        logging.basicConfig(filename='network_analyzer.log', level=logging.INFO)
 
     @abstractmethod
     def update(self, *args, **kwargs):
@@ -36,10 +38,13 @@ class OutputToScreen(Output):
 
     def update(self, frame) -> None:
         self._frame = frame
+        print(f"Update called with frame: {self._frame}")
+        print(f"Frame number: {getattr(self._frame, 'packet_num', 'N/A')}")
         self._display_output_header()
         self._display_protocol_info()
         self._display_packet_contents()
-
+        logging.info(f"Frame #{self._frame.packet_num} - {self._frame.epoch_time}: "
+                     f"Source: {self._frame.ethernet.src}, Destination: {self._frame.ethernet.dst}")
     def _display_output_header(self) -> None:
         local_time = time.strftime("%H:%M:%S", time.localtime())
         print(f"[>] Frame #{self._frame.packet_num} at {local_time}:")

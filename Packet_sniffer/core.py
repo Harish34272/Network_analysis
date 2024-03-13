@@ -21,6 +21,13 @@ class Decoder:
         """
         if self.interface is not None:
             sock.bind((self.interface, 0))
+    def _inspect_payload(self):
+        if hasattr(self, 'tcp') and hasattr(self, 'udp') and self.tcp.payload_len > 0:
+            # Perform DPI on TCP payload
+            payload_data = self.data[:self.tcp.payload_len]
+            # Add your DPI analysis logic here
+            print(f"[+] DPI Analysis: {payload_data.decode(errors='ignore')}")
+            #print(f"{self._indentation}[+] DPI Analysis: {payload_data.decode(errors='ignore')}")
     def _attach_protocols(self, frame: bytes):
         """Dynamically attach protocols as instance attributes.
 
@@ -46,18 +53,17 @@ class Decoder:
             self.protocol_queue.append(protocol.encapsulated_proto)
             start = end
         self.data = frame[end:]
-
-    def execute(self) -> Iterator:
+    def execute(self, indentation: str = " ") -> Iterator:
         with socket(PF_PACKET, SOCK_RAW, ntohs(0x0003)) as sock:
             self._bind_interface(sock)
             for self.packet_num in itertools.count(1):
                 self.frame_length = len(frame := sock.recv(9000))
                 self.epoch_time = time.time_ns() / (10 ** 9)
                 self._attach_protocols(frame)
+                self._inspect_payload()  
                 yield self
                 del self.protocol_queue[1:]
-    
-
+   
 class PacketSniffer:
     def __init__(self):
         """Monitor a network interface for incoming data, decode it and
