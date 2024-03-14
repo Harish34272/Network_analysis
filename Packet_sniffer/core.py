@@ -4,6 +4,8 @@ from socket import PF_PACKET, SOCK_RAW, ntohs, socket
 from typing import Iterator
 
 import netprotocols
+import joblib  
+model = joblib.load('knn_model.pkl')
 
 class Decoder:
     def __init__(self, interface: str):
@@ -21,12 +23,29 @@ class Decoder:
         """
         if self.interface is not None:
             sock.bind((self.interface, 0))
+    def _extract_features(self, payload):
+        payload_length = len(payload)
+        num_unique_characters = len(set(payload))
+        extracted_features = [payload_length, num_unique_characters]
+        return extracted_features
+    def _predict(self, features):
+       
+        prediction = model.predict(features.reshape(1, -1))  # Reshape features if needed
+        return prediction
+
     def _inspect_payload(self):
         if hasattr(self, 'tcp') and hasattr(self, 'udp') and self.tcp.payload_len > 0:
             # Perform DPI on TCP payload
             payload_data = self.data[:self.tcp.payload_len]
             # Add your DPI analysis logic here
             print(f"[+] DPI Analysis: {payload_data.decode(errors='ignore')}")
+            features = self._extract_features(payload_data)
+            prediction = self._predict(features)
+            if prediction == "normal":
+             print("[+] Traffic is normal")
+            else:
+              print("[+] Traffic is an anomaly")
+            #print(f"[+] Prediction: {prediction}")
             #print(f"{self._indentation}[+] DPI Analysis: {payload_data.decode(errors='ignore')}")
     def _attach_protocols(self, frame: bytes):
         """Dynamically attach protocols as instance attributes.
